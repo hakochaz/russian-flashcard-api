@@ -13,21 +13,21 @@ using Microsoft.Extensions.Logging;
 
 namespace russian_flashcard_api;
 
-public class RussianVariationsFunction
+public class RussianWordVariations
 {
-    private readonly ILogger<RussianVariationsFunction> _logger;
+    private readonly ILogger<RussianWordVariations> _logger;
     private static readonly HttpClient _httpClient = new HttpClient
     {
         Timeout = TimeSpan.FromSeconds(120),
         DefaultRequestVersion = new Version(1, 1)
     };
 
-    public RussianVariationsFunction(ILogger<RussianVariationsFunction> logger)
+    public RussianWordVariations(ILogger<RussianWordVariations> logger)
     {
         _logger = logger;
     }
 
-    [Function("RussianVariations")]
+    [Function("RussianWordVariations")]
     public async Task<IActionResult> Run(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "russian/variations")] HttpRequest req)
     {
