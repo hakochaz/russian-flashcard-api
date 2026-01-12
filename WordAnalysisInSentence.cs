@@ -159,12 +159,13 @@ public class WordAnalysisInSentence
                "  \"russianMeaning\": \"<Russian definition/explanation>\"\n" +
                "}\n\n" +
                "For baseForm:\n" +
-               "- For nouns/adjectives: provide nominative singular (if the word is inflected differently in the sentence)\n" +
+               "- For nouns: provide nominative singular (if the word is inflected differently in the sentence)\n" +
+               "- For adjectives: provide masculine nominative singular (if the word is inflected differently in the sentence)\n" +
                "- For verbs: provide the infinitive form (e.g., читать, писать)\n" +
                "- For verbs, append the aspect in brackets: (св) for perfective, (нсв) for imperfective\n" +
                "- For nouns ending in soft sign (ь): append the gender in brackets, e.g. дверь (ж)\n" +
                "- If the word in the sentence is already in base form, still include the baseForm field with the word and metadata\n" +
-               "Example: baseForm could be \"читать (нсв)\" or \"дверь (ж)\" or \"книга\"\n\n" +
+               "Example: baseForm could be \"читать (нсв)\" or \"дверь (ж)\" or \"книга\" or \"новый\" (masculine nominative singular for adjectives)\n\n" +
                "For englishTranslation: provide the most accurate English equivalent in the context of this sentence.\n" +
                "For russianMeaning: provide a clear Russian-language definition or explanation of the word.\n\n" +
                "Return only the JSON object, no other text.";
