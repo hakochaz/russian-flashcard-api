@@ -15,28 +15,12 @@ public class GetTableRowCount
     {
         _logger = logger;
     }
-
-    private void AddCorsHeaders(HttpContext context)
-    {
-        context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
-    }
-
+    
     [Function("GetTableRowCount")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", "options", Route = "table/{tableName}/count")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "table/{tableName}/count")] HttpRequest req,
         string tableName)
     {
-        // Add CORS headers to all responses
-        AddCorsHeaders(req.HttpContext);
-
-        // Handle CORS preflight
-        if (req.Method == "OPTIONS")
-        {
-            return new OkResult();
-        }
-
         _logger.LogInformation("GetTableRowCount called for table {table}", tableName);
 
         var connectionString = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
