@@ -29,7 +29,7 @@ public class RussianWordVariations
 
     [Function("RussianWordVariations")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "russian/variations")] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "russian/variations")] HttpRequest req)
     {
         string body;
         using (var reader = new StreamReader(req.Body))
@@ -38,19 +38,6 @@ public class RussianWordVariations
         }
 
         string word = null;
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(body))
-            {
-                using var doc = JsonDocument.Parse(body);
-                if (doc.RootElement.TryGetProperty("word", out var w))
-                    word = w.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            // ignore - we'll fallback to query param
-        }
 
         if (string.IsNullOrWhiteSpace(word))
         {
