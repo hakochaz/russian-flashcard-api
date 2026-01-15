@@ -29,7 +29,7 @@ public class RussianWordVariations
 
     [Function("RussianWordVariations")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "russian/variations")] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "russian/variations")] HttpRequest req)
     {
         string body;
         using (var reader = new StreamReader(req.Body))

@@ -18,7 +18,7 @@ public class GetEntityByRowId
 
     [Function("GetEntityByRowId")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "entity/{tableName}/{rowKey}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "entity/{tableName}/{rowKey}")] HttpRequest req,
         string tableName,
         string rowKey)
     {
@@ -36,7 +36,7 @@ public class GetEntityByRowId
             var tableClient = new TableClient(connectionString, tableName);
 
             // Optional partitionKey query parameter
-            var partitionKey = req.Query["partitionKey"].FirstOrDefault();
+            var partitionKey = req.Query["partitionKey"].ToString();
 
             if (!string.IsNullOrEmpty(partitionKey))
             {
@@ -53,10 +53,10 @@ public class GetEntityByRowId
 
             // If no partitionKey provided, query by RowKey across partitions (may be slower)
             var filter = $"RowKey eq '{rowKey.Replace("'","''")}'";
-            await foreach (var page in tableClient.QueryAsync<TableEntity>(filter))
+            await foreach (var entity in tableClient.QueryAsync<TableEntity>(filter))
             {
                 // return first match
-                return new OkObjectResult(page);
+                return new OkObjectResult(entity);
             }
 
             return new NotFoundResult();

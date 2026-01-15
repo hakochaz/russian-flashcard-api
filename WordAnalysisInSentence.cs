@@ -29,7 +29,7 @@ public class WordAnalysisInSentence
 
     [Function("WordAnalysisInSentence")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "russian/analyze-word")] HttpRequest req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "russian/analyze-word")] HttpRequest req)
     {
         string body;
         using (var reader = new StreamReader(req.Body))

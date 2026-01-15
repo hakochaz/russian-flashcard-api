@@ -18,7 +18,7 @@ public class GetTableRowCount
     
     [Function("GetTableRowCount")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "table/{tableName}/count")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "table/{tableName}/count")] HttpRequest req,
         string tableName)
     {
         _logger.LogInformation("GetTableRowCount called for table {table}", tableName);

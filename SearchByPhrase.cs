@@ -17,7 +17,7 @@ public class SearchByPhrase
 
     [Function("SearchByPhrase")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "search/{tableName}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "search/{tableName}")] HttpRequest req,
         string tableName)
     {
         var q = req.Query["q"].ToString();
