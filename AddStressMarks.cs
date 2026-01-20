@@ -143,7 +143,9 @@ public class AddStressMarks
 
     private static string BuildPrompt(string sentence)
     {
-        return "Add stress marks to every word in the following Russian sentence using the Unicode combining acute accent (U+0301) immediately after the stressed vowel. "
+        return "Add stress marks to words in the following Russian sentence using the Unicode combining acute accent (U+0301) immediately after the stressed vowel. "
+             + "IMPORTANT: Do NOT add stress marks to single-letter words (like 'я', 'в', 'и', etc.) or to any word that has only one syllable (one vowel). "
+             + "Only add stress marks to multi-syllable words (words with two or more vowels). "
              + "Return a JSON object only in the exact form: { \"stressed\": \"<sentence with stress marks>\" } with canonical Cyrillic characters. "
              + "Do not include any explanation, extra text, or markup. Use combining accent examples like 'молоко\u0301' for 'молоко'.\n\n" 
              + "Sentence: \"" + sentence + "\"";
