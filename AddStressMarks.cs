@@ -145,9 +145,10 @@ public class AddStressMarks
     {
         return "Add stress marks to words in the following Russian sentence using the Unicode combining acute accent (U+0301) immediately after the stressed vowel. "
              + "IMPORTANT: Do NOT add stress marks to single-letter words (like 'я', 'в', 'и', etc.) or to any word that has only one syllable (one vowel). "
-             + "Only add stress marks to multi-syllable words (words with two or more vowels). "
+             + "DO add stress marks to words with 2 or more syllables (2 or more vowels). For example, 'могу' (2 syllables) must become 'могу\u0301'. "
+             + "Full example: \"Я не могу дать тебе определенный ответ сегодня.\" becomes \"Я не могу\u0301 дать тебе\u0301 определённый отве\u0301т сего\u0301дня.\" "
              + "Return a JSON object only in the exact form: { \"stressed\": \"<sentence with stress marks>\" } with canonical Cyrillic characters. "
-             + "Do not include any explanation, extra text, or markup. Use combining accent examples like 'молоко\u0301' for 'молоко'.\n\n" 
+             + "Do not include any explanation, extra text, or markup.\n\n" 
              + "Sentence: \"" + sentence + "\"";
     }
 }
