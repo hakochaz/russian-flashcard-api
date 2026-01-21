@@ -161,11 +161,13 @@ public class WordAnalysisInSentence
                "For baseForm:\n" +
                "- For nouns: provide nominative singular (if the word is inflected differently in the sentence)\n" +
                "- For adjectives: provide masculine nominative singular (if the word is inflected differently in the sentence)\n" +
-               "- For verbs: provide the infinitive form (e.g., читать, писать)\n" +
-               "- For verbs, append the aspect in brackets: (св) for perfective, (нсв) for imperfective\n" +
-               "- For nouns ending in soft sign (ь): append the gender in brackets, e.g. дверь (ж)\n" +
+               "- For verbs: provide the infinitive form with aspect markers\n" +
+               "  - If the verb has an obvious imperfective/perfective pair, include both forms separated by /, e.g., \"Делать (нсв) / Сделать (св)\"\n" +
+               "  - If no obvious pair exists, provide just the single form with aspect, e.g., \"читать (нсв)\"\n" +
+               "- For prepositions that always require a specific case, append the case in brackets with +, e.g., \"по (+д)\" for dative\n" +
+               "- For nouns ending in soft sign (ь): append the gender in brackets, e.g., \"дверь (ж)\"\n" +
                "- If the word in the sentence is already in base form, still include the baseForm field with the word and metadata\n" +
-               "Example: baseForm could be \"читать (нсв)\" or \"дверь (ж)\" or \"книга\" or \"новый\" (masculine nominative singular for adjectives)\n\n" +
+               "Example: baseForm could be \"Делать (нсв) / Сделать (св)\" or \"дверь (ж)\" or \"книга\" or \"новый\" or \"по (+д)\"\n\n" +
                "For englishTranslation: provide the most accurate English equivalent in the context of this sentence.\n" +
                "For russianMeaning: provide a clear Russian-language definition or explanation of the word.\n\n" +
                "Return only the JSON object, no other text.";
