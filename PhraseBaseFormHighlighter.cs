@@ -93,8 +93,7 @@ public class PhraseBaseFormHighlighter
         return new OkObjectResult(new
         {
             phraseAnswer = sentence,
-            bracketedSentence = bracketed,
-            baseForm = baseFormPhrase
+            bracketedSentence = bracketed
         });
     }
 
@@ -102,20 +101,25 @@ public class PhraseBaseFormHighlighter
     {
         var prompt = $"Sentence: \"{sentence}\"\n" +
                      $"Selected words: \"{words}\"\n\n" +
-                     "Return the lemma/base form for each selected token in order, joined by spaces, and nothing else.\n" +
-                     "- Nouns: nominative case, preserving the original number (singular/plural); if ending with ь, append (m), (f), or (n).\n" +
-                     "- Adjectives/pronouns: nominative case, preserving the original gender and number without gender marker.\n" +
-                     "- Verbs: infinitive with aspect marker (i) or (p) that matches usage in the sentence.\n" +
-                     "- Prepositions with fixed case: append (+d), (+a), (+g), (+i), or (+p).\n" +
-                     "Example outputs: 'эта студентка', 'эти спортсмены'\n" +
-                     "Return only the base-form phrase, no JSON or explanation.";
+                     "Convert the selected words to nominative case (for nouns, adjectives, pronouns) or to the plain infinitive (for verbs) while preserving number and gender. Return the result joined by spaces. No markers or metadata.\n\n" +
+                     "CRITICAL RULES:\n" +
+                     "- PRESERVE NUMBER: If the word is plural, the nominative form MUST be plural. If singular, keep singular.\n" +
+                     "- Nouns: nominative case, same number as original.\n" +
+                     "- Adjectives/pronouns: nominative case, same gender and number as original.\n" +
+                     "- Verbs: plain infinitive only (no aspect markers, no tags).\n" +
+                     "- Do not add any labels, parentheses, or case markers to the returned words.\n\n" +
+                     "Examples:\n" +
+                     "- 'этой студентке' → 'эта студентка' (feminine singular)\n" +
+                     "- 'этим спортсменам' → 'эти спортсмены' (plural)\n" +
+                     "- 'люблю' → 'любить' (verb infinitive)\n\n" +
+                     "Return only the converted phrase, nothing else.";
 
         var requestBody = JsonSerializer.Serialize(new
         {
             model = "gpt-4o-mini",
             messages = new[]
             {
-                new { role = "system", content = "You are a precise Russian linguist. Reply with the base-form phrase only." },
+                new { role = "system", content = "You are a precise Russian linguist. Reply with only the converted phrase (nominative/infinitive) and nothing else." },
                 new { role = "user", content = prompt }
             },
             temperature = 0.1
