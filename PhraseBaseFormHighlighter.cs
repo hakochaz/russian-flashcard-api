@@ -103,14 +103,16 @@ public class PhraseBaseFormHighlighter
                      $"Selected words: \"{words}\"\n\n" +
                      "Convert the selected words to nominative case (for nouns, adjectives, pronouns) or to the plain infinitive (for verbs) while preserving number and gender. Return the result joined by spaces. No markers or metadata.\n\n" +
                      "CRITICAL RULES:\n" +
-                     "- PRESERVE NUMBER: If the word is plural, the nominative form MUST be plural. If singular, keep singular.\n" +
-                     "- Nouns: nominative case, same number as original.\n" +
-                     "- Adjectives/pronouns: nominative case, same gender and number as original.\n" +
+                     "- PRESERVE NUMBER EXACTLY: Analyze the original words carefully for grammatical number. If singular, output MUST be singular. If plural, output MUST be plural.\n" +
+                     "- Nouns: nominative case, SAME number as original (singular → singular, plural → plural).\n" +
+                     "- Adjectives/pronouns: nominative case, SAME gender and number as original.\n" +
                      "- Verbs: plain infinitive only (no aspect markers, no tags).\n" +
                      "- Do not add any labels, parentheses, or case markers to the returned words.\n\n" +
                      "Examples:\n" +
-                     "- 'этой студентке' → 'эта студентка' (feminine singular)\n" +
-                     "- 'этим спортсменам' → 'эти спортсмены' (plural)\n" +
+                     "- 'этой студентке' → 'эта студентка' (feminine singular dative → feminine singular nominative)\n" +
+                     "- 'этим спортсменам' → 'эти спортсмены' (masculine plural dative → masculine plural nominative)\n" +
+                     "- 'спортивном зале' → 'спортивный зал' (masculine singular prepositional → masculine singular nominative)\n" +
+                     "- 'спортивных залах' → 'спортивные залы' (masculine plural prepositional → masculine plural nominative)\n" +
                      "- 'люблю' → 'любить' (verb infinitive)\n\n" +
                      "Return only the converted phrase, nothing else.";
 
