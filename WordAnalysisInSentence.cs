@@ -234,12 +234,15 @@ public class WordAnalysisInSentence
     private async Task<string?> GetMeaningFromOpenAI(string sentence, string word, string baseForm, string apiKey)
     {
         var prompt = $"For the Russian word '{word}' in the sentence \"{sentence}\" " +
-                     $"(base form: {baseForm}), provide ONLY a Russian definition/explanation.\n\n" +
-                     "Provide a clear, natural Russian explanation as you would find in a толковый словарь.\n" +
-                     "Use simple, clear Russian that explains the meaning.\n" +
-                     "Make it contextually relevant to how the word is used in this sentence.\n" +
-                     "Should be a complete phrase or sentence, not just synonyms.\n\n" +
-                     "Return ONLY the Russian definition as a string, no JSON, no extra text.";
+                     $"(base form: {baseForm}), provide ONLY a Russian definition.\n\n" +
+                     "Provide a direct definition in Russian - be accurate over brevity.\n" +
+                     "Do NOT include meta-language like 'Глагол означает', 'Это значит', etc.\n" +
+                     "Just give the core meaning directly, using as many words as needed for clarity.\n" +
+                     "Examples:\n" +
+                     "- For 'учусь': получать знания и умения в школе или другом учреждении\n" +
+                     "- For 'дверь': створка или конструкция для входа в помещение или выхода из него\n" +
+                     "- For 'читать': воспринимать напечатанный или написанный текст\n\n" +
+                     "Return ONLY the Russian definition, no JSON, no extra text.";
 
         return await CallOpenAI(prompt, apiKey, extractString: true);
     }
@@ -362,34 +365,35 @@ public class WordAnalysisInSentence
                "- For verbs, translate to match the aspect used (completed action vs ongoing/habitual)\n" +
                "- Keep it concise - typically 1-3 words\n\n" +
                "For russianMeaning:\n" +
-               "- Provide a clear, natural Russian explanation as you would find in a толковый словарь\n" +
-               "- Use simple, clear Russian that explains the meaning\n" +
-               "- Make it contextually relevant to how the word is used in this sentence\n" +
-               "- Should be a complete phrase or sentence, not just synonyms\n\n" +
+               "- Provide a direct definition in Russian - be accurate over artificially brief\n" +
+               "- Use as many words as needed to capture the true meaning clearly\n" +
+               "- Do NOT include meta-language like 'Глагол означает', 'Это значит', 'Слово обозначает'\n" +
+               "- Just give the core meaning directly\n" +
+               "- Make it contextually relevant to how the word is used in this sentence\n\n" +
                "COMPLETE EXAMPLES:\n" +
                "1. Word 'читал' in \"Вчера я читал книгу\" (imperfective, ongoing action):\n" +
                "{\n" +
                "  \"baseForm\": \"читать (i)\",\n" +
                "  \"englishTranslation\": \"was reading\",\n" +
-               "  \"russianMeaning\": \"воспринимать текст, произнося его вслух или про себя\"\n" +
+               "  \"russianMeaning\": \"воспринимать напечатанный текст с целью понимания его содержания\"\n" +
                "}\n\n" +
                "2. Word 'прочитал' in \"Я прочитал книгу\" (perfective, completed action):\n" +
                "{\n" +
                "  \"baseForm\": \"прочитать (p)\",\n" +
                "  \"englishTranslation\": \"read / finished reading\",\n" +
-               "  \"russianMeaning\": \"воспринять текст от начала до конца\"\n" +
+               "  \"russianMeaning\": \"полностью воспринять и понять напечатанный текст\"\n" +
                "}\n\n" +
                "3. Word 'дверь' in \"Он открыл дверь\":\n" +
                "{\n" +
                "  \"baseForm\": \"дверь (f)\",\n" +
                "  \"englishTranslation\": \"door\",\n" +
-               "  \"russianMeaning\": \"проём в стене для входа и выхода, обычно с подвижной створкой\"\n" +
+               "  \"russianMeaning\": \"створка или конструкция для входа в помещение или выхода из него\"\n" +
                "}\n\n" +
                "4. Word 'купил' in \"Я купил новую машину\" (perfective, completed action):\n" +
                "{\n" +
                "  \"baseForm\": \"купить (p)\",\n" +
                "  \"englishTranslation\": \"bought\",\n" +
-               "  \"russianMeaning\": \"приобрести что-либо за деньги\"\n" +
+               "  \"russianMeaning\": \"приобрести товар или предмет путем обмена денег на требуемую стоимость\"\n" +
                "}\n\n" +
                "Return ONLY the JSON object for the requested word, no other text.";
     }
