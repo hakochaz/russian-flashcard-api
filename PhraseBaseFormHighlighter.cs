@@ -103,11 +103,11 @@ public class PhraseBaseFormHighlighter
         var prompt = $"Sentence: \"{sentence}\"\n" +
                      $"Selected words: \"{words}\"\n\n" +
                      "Return the lemma/base form for each selected token in order, joined by spaces, and nothing else.\n" +
-                     "- Nouns: nominative singular; if ending with ь, append (m), (f), or (n).\n" +
-                     "- Adjectives/pronouns: masculine nominative singular without gender marker.\n" +
+                     "- Nouns: nominative case, preserving the original number (singular/plural); if ending with ь, append (m), (f), or (n).\n" +
+                     "- Adjectives/pronouns: nominative case, preserving the original gender and number without gender marker.\n" +
                      "- Verbs: infinitive with aspect marker (i) or (p) that matches usage in the sentence.\n" +
                      "- Prepositions with fixed case: append (+d), (+a), (+g), (+i), or (+p).\n" +
-                     "Example output format: этот человек\n" +
+                     "Example outputs: 'эта студентка', 'эти спортсмены'\n" +
                      "Return only the base-form phrase, no JSON or explanation.";
 
         var requestBody = JsonSerializer.Serialize(new
