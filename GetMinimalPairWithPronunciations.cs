@@ -6,24 +6,25 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Linq;
 
 namespace russian_flashcard_api;
 
-public class GetShadowingWithPronunciations
+public class GetMinimalPairWithPronunciations
 {
-    private readonly ILogger<GetShadowingWithPronunciations> _logger;
+    private readonly ILogger<GetMinimalPairWithPronunciations> _logger;
 
-    public GetShadowingWithPronunciations(ILogger<GetShadowingWithPronunciations> logger)
+    public GetMinimalPairWithPronunciations(ILogger<GetMinimalPairWithPronunciations> logger)
     {
         _logger = logger;
     }
 
-    [Function("GetShadowingWithPronunciations")]
+    [Function("GetMinimalPairWithPronunciations")]
     public async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "shadowing/{id}")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "minimalpairs/{id}")] HttpRequest req,
         string id)
     {
-        _logger.LogInformation("GetShadowingWithPronunciations called for ID: {id}", id);
+        _logger.LogInformation("GetMinimalPairWithPronunciations called for ID: {id}", id);
 
         var connectionString = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
         if (string.IsNullOrEmpty(connectionString))
@@ -41,7 +42,7 @@ public class GetShadowingWithPronunciations
 
         try
         {
-            var tableClient = new TableClient(connectionString, "Shadowing");
+            var tableClient = new TableClient(connectionString, "MinimalPairs");
 
             // Try to get entity by RowKey (assuming id is the RowKey)
             TableEntity? entity = null;
@@ -75,51 +76,73 @@ public class GetShadowingWithPronunciations
                 }
             }
 
-            // Extract sentence from entity
-            string? sentence = null;
-            if (entity.TryGetValue("Sentence", out var sentenceValue))
+            // Extract pair from entity
+            string? pair = null;
+            if (entity.TryGetValue("Pair", out var pairValue))
             {
-                sentence = sentenceValue?.ToString();
+                pair = pairValue?.ToString();
             }
 
-            if (string.IsNullOrEmpty(sentence))
+            if (string.IsNullOrEmpty(pair))
             {
-                _logger.LogWarning("Entity found but no Sentence field present");
-                return new OkObjectResult(new ShadowingWithPronunciationsResult
+                _logger.LogWarning("Entity found but no Pair field present");
+                return new OkObjectResult(new MinimalPairWithPronunciationsResult
                 {
                     Entity = entity,
-                    Pronunciations = new List<ForvoPronunciation>()
+                    Pronunciations1 = new List<ForvoPronunciation>(),
+                    Pronunciations2 = new List<ForvoPronunciation>()
                 });
             }
 
-            // Fetch pronunciations from Forvo
-            var pronunciations = await FetchForvoPronunciations(apiKey, sentence);
+            var parts = pair
+                .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
 
-            var result = new ShadowingWithPronunciationsResult
+            if (parts.Count == 0)
+            {
+                return new OkObjectResult(new MinimalPairWithPronunciationsResult
+                {
+                    Entity = entity,
+                    Pronunciations1 = new List<ForvoPronunciation>(),
+                    Pronunciations2 = new List<ForvoPronunciation>()
+                });
+            }
+
+            // Fetch pronunciations for each part
+            var pronunciations1 = parts.Count > 0
+                ? await FetchForvoPronunciations(apiKey, parts[0])
+                : new List<ForvoPronunciation>();
+
+            var pronunciations2 = parts.Count > 1
+                ? await FetchForvoPronunciations(apiKey, parts[1])
+                : new List<ForvoPronunciation>();
+
+            var result = new MinimalPairWithPronunciationsResult
             {
                 Entity = entity,
-                Pronunciations = pronunciations
+                Pronunciations1 = pronunciations1,
+                Pronunciations2 = pronunciations2
             };
 
             return new OkObjectResult(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching shadowing entity with pronunciations");
+            _logger.LogError(ex, "Error fetching minimal pair entity with pronunciations");
             return new StatusCodeResult(StatusCodes.Status500InternalServerError);
         }
     }
 
-    private async Task<List<ForvoPronunciation>> FetchForvoPronunciations(string apiKey, string sentence)
+    private async Task<List<ForvoPronunciation>> FetchForvoPronunciations(string apiKey, string text)
     {
         var pronunciations = new List<ForvoPronunciation>();
 
         try
         {
             using var httpClient = new HttpClient();
-            var url = $"https://apifree.forvo.com/key/{apiKey}/format/json/action/word-pronunciations/word/{Uri.EscapeDataString(sentence)}/language/ru";
+            var url = $"https://apifree.forvo.com/key/{apiKey}/format/json/action/word-pronunciations/word/{Uri.EscapeDataString(text)}/language/ru";
 
-            _logger.LogInformation($"Fetching pronunciations from Forvo for: {sentence}");
+            _logger.LogInformation($"Fetching pronunciations from Forvo for: {text}");
 
             var response = await httpClient.GetAsync(url);
 
@@ -164,23 +187,26 @@ public class GetShadowingWithPronunciations
                 }
             }
 
-            _logger.LogInformation($"Found {pronunciations.Count} pronunciations for sentence: {sentence}");
+            _logger.LogInformation($"Found {pronunciations.Count} pronunciations for text: {text}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error fetching Forvo pronunciations for sentence: {sentence}");
+            _logger.LogError(ex, $"Error fetching Forvo pronunciations for text: {text}");
         }
 
         return pronunciations;
     }
 }
 
-public class ShadowingWithPronunciationsResult
+public class MinimalPairWithPronunciationsResult
 {
     [JsonPropertyName("entity")]
     public TableEntity? Entity { get; set; }
 
-    [JsonPropertyName("pronunciations")]
-    public List<ForvoPronunciation> Pronunciations { get; set; } = new();
+    [JsonPropertyName("pronunciations1")]
+    public List<ForvoPronunciation> Pronunciations1 { get; set; } = new();
+
+    [JsonPropertyName("pronunciations2")]
+    public List<ForvoPronunciation> Pronunciations2 { get; set; } = new();
 }
 
