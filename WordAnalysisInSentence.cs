@@ -152,6 +152,8 @@ public class WordAnalysisInSentence
                      "  - Examples: \"дверь (f)\", \"день (m)\", \"книга\", \"дом\", \"окно\"\n" +
                      "- For adjectives: masculine nominative singular, no gender markers\n" +
                      "  - Example: \"новый\"\n" +
+                     "- For adverbs: return as-is (do NOT convert to adjective)\n" +
+                     "  - Examples: \"необходимо\", \"хорошо\", \"быстро\"\n" +
                      "- For verbs: infinitive with aspect marker\n" +
                      "  - Use (i) for imperfective or (p) for perfective\n" +
                      "  - Provide ONLY ONE form based on what is used in the sentence\n" +
@@ -349,6 +351,10 @@ public class WordAnalysisInSentence
                "  - If the noun doesn't end with ь, never add gender markers\n" +
                "- For adjectives: provide masculine nominative singular WITHOUT gender markers (if the word is inflected differently in the sentence)\n" +
                "  - Example: \"новый\" not \"новый (m)\"\n" +
+               "- For adverbs: return the adverb as-is (do NOT convert to adjective form)\n" +
+               "  - CRITICAL: Adverbs should stay as adverbs, not be converted to their adjective forms\n" +
+               "  - Examples: \"необходимо\", \"хорошо\", \"быстро\", \"красиво\", \"важно\"\n" +
+               "  - DO NOT write: \"необходимый\", \"хороший\", \"быстрый\" - these are WRONG for adverbs!\n" +
                "- For verbs: provide the infinitive form with aspect marker\n" +
                "  - Use (i) for imperfective or (p) for perfective\n" +
                "  - Provide ONLY ONE form - the aspect that matches what is used in the sentence\n" +
