@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.AspNetCore.Http;
@@ -22,6 +24,11 @@ public class WordAnalysisInSentence
         Timeout = TimeSpan.FromSeconds(120),
         DefaultRequestVersion = new Version(1, 1)
     };
+
+    static WordAnalysisInSentence()
+    {
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "RussianFlashcardAPI/1.0 (Educational flashcard application)");
+    }
 
     public WordAnalysisInSentence(ILogger<WordAnalysisInSentence> logger)
     {
@@ -109,7 +116,7 @@ public class WordAnalysisInSentence
                 }
                 else
                 {
-                    _logger.LogInformation("No results from Azure Search, will get full analysis from OpenAI");
+                    _logger.LogInformation("No results from Azure Search");
                 }
             }
             else
@@ -117,24 +124,43 @@ public class WordAnalysisInSentence
                 _logger.LogInformation("Azure Search not configured, skipping search step");
             }
 
-            // Step 3: Get meaning from OpenAI (or full analysis if no search results)
-            if (!string.IsNullOrWhiteSpace(finalTranslation))
+            // Step 3: Fetch Wiktionary data
+            _logger.LogInformation("Step 3: Fetching Wiktionary data for: {baseForm}", finalBaseForm);
+            var wiktionaryData = await FetchWiktionaryData(finalBaseForm);
+
+            // Step 4: Determine translation
+            if (string.IsNullOrWhiteSpace(finalTranslation) && wiktionaryData != null && wiktionaryData.Translations.Any())
             {
-                _logger.LogInformation("Step 3: Getting meaning from OpenAI");
-                var meaning = await GetMeaningFromOpenAI(sentence, word, finalBaseForm, openaiApiKey);
-                
-                return new OkObjectResult(new
-                {
-                    baseForm = finalBaseForm,
-                    englishTranslation = finalTranslation,
-                    russianMeaning = meaning ?? "Не удалось получить значение"
-                });
+                _logger.LogInformation("Step 4: Selecting translation from Wiktionary using OpenAI");
+                finalTranslation = await SelectRelevantTranslations(sentence, word, finalBaseForm, wiktionaryData.Translations, openaiApiKey);
+            }
+
+            // Step 5: Determine meaning - always use Wiktionary if available, otherwise OpenAI
+            string? finalMeaning = null;
+            if (wiktionaryData != null && wiktionaryData.Meanings.Any())
+            {
+                _logger.LogInformation("Step 5: Selecting meaning from Wiktionary using OpenAI");
+                finalMeaning = await SelectRelevantMeaning(sentence, word, finalBaseForm, wiktionaryData.Meanings, openaiApiKey);
             }
             else
             {
-                _logger.LogInformation("Step 3: Getting full analysis from OpenAI (no search results)");
+                _logger.LogInformation("Step 5: Getting meaning from OpenAI (no Wiktionary data)");
+                finalMeaning = await GetMeaningFromOpenAI(sentence, word, finalBaseForm, openaiApiKey);
+            }
+
+            // Step 6: If we still don't have translation, fall back to full OpenAI analysis
+            if (string.IsNullOrWhiteSpace(finalTranslation))
+            {
+                _logger.LogInformation("Step 6: Getting full analysis from OpenAI (no translation found)");
                 return await GetFullAnalysisFromOpenAI(sentence, word, openaiApiKey);
             }
+
+            return new OkObjectResult(new
+            {
+                baseForm = finalBaseForm,
+                englishTranslation = finalTranslation,
+                russianMeaning = finalMeaning ?? "Не удалось получить значение"
+            });
         }
         catch (Exception ex)
         {
@@ -270,6 +296,193 @@ public class WordAnalysisInSentence
         }
     }
 
+    private async Task<WiktionaryData?> FetchWiktionaryData(string baseForm)
+    {
+        try
+        {
+            // Clean the base form for Wiktionary search
+            var searchTerm = baseForm
+                .Replace(" (i)", "")
+                .Replace(" (p)", "")
+                .Replace(" (m)", "")
+                .Replace(" (f)", "")
+                .Replace(" (n)", "")
+                .Replace(" (+d)", "")
+                .Replace(" (+a)", "")
+                .Replace(" (+g)", "")
+                .Replace(" (+i)", "")
+                .Replace(" (+p)", "")
+                .Trim();
+
+            var wikitext = await FetchWiktionaryWikitext(searchTerm);
+            if (string.IsNullOrEmpty(wikitext))
+            {
+                _logger.LogWarning("No Wiktionary entry found for: {searchTerm}", searchTerm);
+                return null;
+            }
+
+            return ParseWiktionaryWikitext(wikitext, searchTerm);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Wiktionary data");
+            return null;
+        }
+    }
+
+    private async Task<string?> FetchWiktionaryWikitext(string word)
+    {
+        var encodedWord = Uri.EscapeDataString(word);
+        var url = $"https://ru.wiktionary.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&titles={encodedWord}&rvslots=main";
+
+        var response = await _httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(content);
+
+        var pages = doc.RootElement.GetProperty("query").GetProperty("pages");
+        foreach (var page in pages.EnumerateObject())
+        {
+            if (page.Name == "-1")
+            {
+                return null;
+            }
+
+            if (page.Value.TryGetProperty("revisions", out var revisions) && revisions.GetArrayLength() > 0)
+            {
+                var revision = revisions[0];
+                if (revision.TryGetProperty("slots", out var slots) &&
+                    slots.TryGetProperty("main", out var main) &&
+                    main.TryGetProperty("*", out var wikitext))
+                {
+                    return wikitext.GetString();
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private WiktionaryData ParseWiktionaryWikitext(string wikitext, string word)
+    {
+        var data = new WiktionaryData
+        {
+            Translations = new List<string>(),
+            Meanings = new List<string>()
+        };
+
+        // Extract meanings from Значение section
+        var meaningsSectionMatch = Regex.Match(wikitext, @"===\s*Значение\s*===\s*(.*?)(?=(^===|^==|\z))", 
+            RegexOptions.Singleline | RegexOptions.Multiline);
+
+        if (meaningsSectionMatch.Success)
+        {
+            var meaningsSection = meaningsSectionMatch.Groups[1].Value;
+            var definitionMatches = Regex.Matches(meaningsSection, @"^#\s*(?!\*|:)([^\n]+)", RegexOptions.Multiline);
+            
+            foreach (Match match in definitionMatches)
+            {
+                var rawMeaning = match.Groups[1].Value;
+                var exampleMatch = Regex.Match(rawMeaning, @"\{\{(?:пример|example)");
+                if (exampleMatch.Success)
+                {
+                    rawMeaning = rawMeaning.Substring(0, exampleMatch.Index);
+                }
+                
+                var meaning = CleanWikitext(rawMeaning);
+                if (!string.IsNullOrWhiteSpace(meaning))
+                {
+                    data.Meanings.Add(meaning);
+                }
+            }
+        }
+
+        // Extract translations from Перевод section
+        var translationSectionMatch = Regex.Match(wikitext, @"===\s*Перевод\s*===\s*(.*?)(?=(^===|^==|\z))", 
+            RegexOptions.Singleline | RegexOptions.Multiline);
+        
+        if (translationSectionMatch.Success)
+        {
+            var translationSection = translationSectionMatch.Groups[1].Value;
+            
+            var englishMatches = Regex.Matches(translationSection, @"\|\s*en\s*=\s*([^\n|]+)", RegexOptions.Multiline);
+            foreach (Match match in englishMatches)
+            {
+                var translation = CleanWikitext(match.Groups[1].Value);
+                if (!string.IsNullOrWhiteSpace(translation) && !data.Translations.Contains(translation))
+                {
+                    data.Translations.Add(translation);
+                }
+            }
+            
+            var translationEntries = Regex.Matches(translationSection, @"\*\s*{{\s*(?:en|английский)\s*}}\s*:\s*(.+?)(?=\n|\|)", RegexOptions.Multiline);
+            foreach (Match match in translationEntries)
+            {
+                var translationLine = match.Groups[1].Value;
+                var linkMatches = Regex.Matches(translationLine, @"\[\[(?:[^|\]]+\|)?([^\]]+)\]\]");
+                foreach (Match linkMatch in linkMatches)
+                {
+                    var translation = CleanWikitext(linkMatch.Groups[1].Value);
+                    if (!string.IsNullOrWhiteSpace(translation) && !data.Translations.Contains(translation))
+                    {
+                        data.Translations.Add(translation);
+                    }
+                }
+            }
+        }
+
+        return data;
+    }
+
+    private string CleanWikitext(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        while (text.Contains("{{"))
+        {
+            var oldText = text;
+            text = Regex.Replace(text, @"\{\{[^{}]+\}\}", "");
+            if (text == oldText) break;
+        }
+        
+        text = Regex.Replace(text, @"\[\[(?:[^|\]]+\|)?([^\]]+)\]\]", "$1");
+        text = Regex.Replace(text, @"\.?\}\}+", "");
+        text = Regex.Replace(text, @"\{\{+", "");
+        text = Regex.Replace(text, @"<!--.*?-->", "", RegexOptions.Singleline);
+        text = text.Replace("'''", "").Replace("''", "");
+        text = Regex.Replace(text, @"\|[^|]+$", "");
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        text = Regex.Replace(text, @"\s*\.\s*$", ".");
+        
+        return text;
+    }
+
+    private async Task<string?> SelectRelevantTranslations(string sentence, string word, string baseForm, List<string> translations, string apiKey)
+    {
+        var translationsList = string.Join(", ", translations.Select((t, i) => $"{i + 1}. {t}"));
+        
+        var prompt = $"Given the Russian word '{word}' (base form: {baseForm}) in the sentence \"{sentence}\", " +
+                     $"select the most relevant English translation(s) from this list:\n{translationsList}\n\n" +
+                     "Return ONLY the selected translation(s). If multiple are equally relevant, separate them with '; '.\n" +
+                     "Examples: 'house' or 'house; home' or 'building; structure'.\n" +
+                     "Do not include numbers or explanations, just the translation(s).";
+
+        return await CallOpenAI(prompt, apiKey, extractString: true);
+    }
+
+    private async Task<string?> SelectRelevantMeaning(string sentence, string word, string baseForm, List<string> meanings, string apiKey)
+    {
+        var meaningsList = string.Join("\n", meanings.Select((m, i) => $"{i + 1}. {m}"));
+        
+        var prompt = $"Given the Russian word '{word}' (base form: {baseForm}) in the sentence \"{sentence}\", " +
+                     $"select the most contextually relevant Russian definition from this list:\n{meaningsList}\n\n" +
+                     "Return ONLY the selected Russian definition, without the number. Do not modify or explain it.";
+
+        return await CallOpenAI(prompt, apiKey, extractString: true);
+    }
+
     private async Task<string?> CallOpenAI(string prompt, string apiKey, bool extractString)
     {
         var systemMessage = extractString
@@ -403,4 +616,10 @@ public class WordAnalysisInSentence
                "}\n\n" +
                "Return ONLY the JSON object for the requested word, no other text.";
     }
+}
+
+public class WiktionaryData
+{
+    public List<string> Translations { get; set; }
+    public List<string> Meanings { get; set; }
 }
