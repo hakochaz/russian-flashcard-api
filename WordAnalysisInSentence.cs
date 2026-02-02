@@ -124,9 +124,9 @@ public class WordAnalysisInSentence
                 _logger.LogInformation("Azure Search not configured, skipping search step");
             }
 
-            // Step 3: Fetch Wiktionary data
-            _logger.LogInformation("Step 3: Fetching Wiktionary data for: {baseForm}", finalBaseForm);
-            var wiktionaryData = await FetchWiktionaryData(finalBaseForm);
+            // Step 3: Fetch Wiktionary data (always use OpenAI base form)
+            _logger.LogInformation("Step 3: Fetching Wiktionary data for: {baseForm}", baseForm);
+            var wiktionaryData = await FetchWiktionaryData(baseForm);
 
             // Step 4: Determine translation
             if (string.IsNullOrWhiteSpace(finalTranslation) && wiktionaryData != null && wiktionaryData.Translations.Any())
@@ -194,19 +194,8 @@ public class WordAnalysisInSentence
     {
         try
         {
-            // Clean the base form for search (remove aspect markers and gender markers)
-            var searchTerm = baseForm
-                .Replace(" (i)", "")
-                .Replace(" (p)", "")
-                .Replace(" (m)", "")
-                .Replace(" (f)", "")
-                .Replace(" (n)", "")
-                .Replace(" (+d)", "")
-                .Replace(" (+a)", "")
-                .Replace(" (+g)", "")
-                .Replace(" (+i)", "")
-                .Replace(" (+p)", "")
-                .Trim();
+            // Clean the base form for search (remove markers and trailing notes)
+            var searchTerm = CleanBaseFormForLookup(baseForm);
 
             var encodedSearch = HttpUtility.UrlEncode(searchTerm);
             var url = $"{endpoint}/indexes/russian-lexicon/docs?api-version=2023-11-01&search={encodedSearch}";
@@ -301,18 +290,7 @@ public class WordAnalysisInSentence
         try
         {
             // Clean the base form for Wiktionary search
-            var searchTerm = baseForm
-                .Replace(" (i)", "")
-                .Replace(" (p)", "")
-                .Replace(" (m)", "")
-                .Replace(" (f)", "")
-                .Replace(" (n)", "")
-                .Replace(" (+d)", "")
-                .Replace(" (+a)", "")
-                .Replace(" (+g)", "")
-                .Replace(" (+i)", "")
-                .Replace(" (+p)", "")
-                .Trim();
+            var searchTerm = CleanBaseFormForLookup(baseForm);
 
             var wikitext = await FetchWiktionaryWikitext(searchTerm);
             if (string.IsNullOrEmpty(wikitext))
@@ -362,6 +340,25 @@ public class WordAnalysisInSentence
         }
 
         return null;
+    }
+
+    private static string CleanBaseFormForLookup(string baseForm)
+    {
+        var cleaned = baseForm
+            .Replace(" (i)", "")
+            .Replace(" (p)", "")
+            .Replace(" (m)", "")
+            .Replace(" (f)", "")
+            .Replace(" (n)", "")
+            .Replace(" (+d)", "")
+            .Replace(" (+a)", "")
+            .Replace(" (+g)", "")
+            .Replace(" (+i)", "")
+            .Replace(" (+p)", "")
+            .Trim();
+
+        var firstSpace = cleaned.IndexOf(' ');
+        return firstSpace > 0 ? cleaned[..firstSpace].Trim() : cleaned;
     }
 
     private WiktionaryData ParseWiktionaryWikitext(string wikitext, string word)
