@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -58,97 +57,63 @@ public class AddStressMarks
 
         _logger.LogInformation("AddStressMarks called for sentence: {sentence}", sentence);
 
-        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            _logger.LogError("OPENAI_API_KEY is not configured");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
-        }
-
         try
         {
-            var prompt = BuildPrompt(sentence);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://ws3.morpher.ru/russian/addstressmarks");
+            request.Content = new StringContent(sentence, Encoding.UTF8, "text/plain");
 
-            var requestBody = JsonSerializer.Serialize(new
+            using var resp = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+            
+            if (!resp.IsSuccessStatusCode)
             {
-                model = "gpt-3.5-turbo",
-                messages = new[]
-                {
-                    new { role = "system", content = "You are a Russian language expert. Reply with a valid JSON object only. No surrounding text or explanation." },
-                    new { role = "user", content = prompt }
-                },
-                temperature = 0.0
-            });
-
-            const int maxAttempts = 2;
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
-            {
-                try
-                {
-                    using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-                    request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-
-                    using var resp = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-                    using var stream = await resp.Content.ReadAsStreamAsync();
-                    using var reader = new StreamReader(stream, Encoding.UTF8);
-                    var respText = await reader.ReadToEndAsync();
-
-                    if (!resp.IsSuccessStatusCode)
-                    {
-                        _logger.LogError("OpenAI API error: {status} {body}", resp.StatusCode, respText);
-                        return new StatusCodeResult(StatusCodes.Status502BadGateway);
-                    }
-
-                    using var doc = JsonDocument.Parse(respText);
-                    var message = doc.RootElement
-                        .GetProperty("choices")[0]
-                        .GetProperty("message")
-                        .GetProperty("content")
-                        .GetString();
-
-                    // Expect assistant to return a JSON object like { "stressed": "..." }
-                    try
-                    {
-                        var parsed = JsonDocument.Parse(message);
-                        return new OkObjectResult(JsonSerializer.Deserialize<object>(message));
-                    }
-                    catch (JsonException)
-                    {
-                        return new OkObjectResult(new { raw = message });
-                    }
-                }
-                catch (Exception ex) when (attempt < maxAttempts && (ex is HttpRequestException || ex is IOException))
-                {
-                    _logger.LogWarning(ex, "Transient HTTP error calling OpenAI (attempt {attempt}), retrying...", attempt);
-                    await Task.Delay(500 * attempt);
-                    continue;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error calling OpenAI");
-                    return new StatusCodeResult(StatusCodes.Status500InternalServerError);
-                }
+                _logger.LogWarning("Morpher API returned status {status}, returning original sentence", resp.StatusCode);
+                return new OkObjectResult(new { stressed = sentence });
             }
 
-            _logger.LogError("Failed to obtain a valid response from OpenAI after {maxAttempts} attempts", maxAttempts);
-            return new StatusCodeResult(StatusCodes.Status502BadGateway);
+            using var stream = await resp.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var respText = await reader.ReadToEndAsync();
+
+            // Parse XML response to extract the stressed text
+            var stressedText = ExtractStressedText(respText);
+            
+            if (string.IsNullOrWhiteSpace(stressedText))
+            {
+                _logger.LogWarning("Failed to extract stressed text from Morpher response, returning original sentence");
+                return new OkObjectResult(new { stressed = sentence });
+            }
+
+            return new OkObjectResult(new { stressed = stressedText });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in AddStressMarks");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            _logger.LogError(ex, "Error calling Morpher API, returning original sentence");
+            return new OkObjectResult(new { stressed = sentence });
         }
     }
 
-    private static string BuildPrompt(string sentence)
+    private static string ExtractStressedText(string xmlResponse)
     {
-        return "Add stress marks to words in the following Russian sentence using the Unicode combining acute accent (U+0301) immediately after the stressed vowel. "
-             + "IMPORTANT: Do NOT add stress marks to single-letter words (like 'я', 'в', 'и', etc.) or to any word that has only one syllable (one vowel). "
-             + "DO add stress marks to words with 2 or more syllables (2 or more vowels). For example, 'могу' (2 syllables) must become 'могу\u0301'. "
-             + "Full example: \"Я не могу дать тебе определенный ответ сегодня.\" becomes \"Я не могу\u0301 дать тебе\u0301 определённый отве\u0301т сего\u0301дня.\" "
-             + "Return a JSON object only in the exact form: { \"stressed\": \"<sentence with stress marks>\" } with canonical Cyrillic characters. "
-             + "Do not include any explanation, extra text, or markup.\n\n" 
-             + "Sentence: \"" + sentence + "\"";
+        try
+        {
+            // Parse simple XML response like: <?xml version="1.0" encoding="utf-8"?><string>Дверь закрыта с внутренней стороны.</string>
+            var startTag = "<string>";
+            var endTag = "</string>";
+            
+            var startIndex = xmlResponse.IndexOf(startTag);
+            var endIndex = xmlResponse.IndexOf(endTag);
+            
+            if (startIndex >= 0 && endIndex > startIndex)
+            {
+                startIndex += startTag.Length;
+                return xmlResponse.Substring(startIndex, endIndex - startIndex);
+            }
+            
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
