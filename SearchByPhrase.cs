@@ -3,6 +3,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.RegularExpressions;
 
 namespace russian_flashcard_api;
 
@@ -47,13 +48,16 @@ public class SearchByPhrase
 
             var results = new List<TableEntity>();
 
+            // Use word boundaries to match exact words only, not substrings
+            var pattern = $@"\b{Regex.Escape(q)}\b";
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+
             await foreach (var entity in tableClient.QueryAsync<TableEntity>(filter))
             {
                 if (entity.TryGetValue("Phrase", out var phraseObj) && phraseObj != null)
                 {
                     var phrase = phraseObj.ToString();
-                    if (!string.IsNullOrEmpty(phrase) &&
-                        phrase.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (!string.IsNullOrEmpty(phrase) && regex.IsMatch(phrase))
                     {
                         results.Add(entity);
                     }

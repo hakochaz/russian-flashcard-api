@@ -21,4 +21,8 @@
       <PackageReference Include="Azure.Storage.Blobs" Version="12.22.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="russian-flashcard-api.Tests/**" />
+  </ItemGroup>
+
 </Project>
