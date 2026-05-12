@@ -106,16 +106,18 @@ public class GenerateWordImage
 
     private async Task<string?> BuildImagePromptWithOpenAI(string word, string sentence, string? englishTranslation, string apiKey)
     {
-        var translationHint = string.IsNullOrWhiteSpace(englishTranslation)
-            ? ""
-            : $" The word translates to English as \"{englishTranslation}\".";
+        var wordMeaning = string.IsNullOrWhiteSpace(englishTranslation)
+            ? $"\"{word}\""
+            : $"\"{word}\" (meaning: \"{englishTranslation}\")";
 
-        var prompt = $"I am making a Russian language flashcard for the word \"{word}\".\n" +
-                     $"The example sentence is: \"{sentence}\".{translationHint}\n\n" +
-                     "Write a DALL-E image generation prompt that visually illustrates the meaning of this word.\n" +
+        var prompt = $"I am making a Russian language flashcard. The word I need to illustrate is {wordMeaning}.\n" +
+                     $"Example sentence for context only: \"{sentence}\"\n\n" +
+                     $"Write a DALL-E image generation prompt whose SOLE PURPOSE is to make the meaning of {wordMeaning} unmistakable.\n\n" +
                      "Rules:\n" +
-                     "- The image must make the word's meaning immediately clear without any text.\n" +
-                     "- Use the sentence only for context clues (e.g. who is doing the action, the setting).\n" +
+                     $"- The word {wordMeaning} is the ONLY subject. The entire composition must exist to convey that one concept.\n" +
+                     "- Ask yourself: if someone saw this image with no captions, would their first thought be the word's meaning? If not, redesign.\n" +
+                     "- The example sentence is background flavour only — do NOT let its characters, setting, or action become the focus.\n" +
+                     "- Depict the most iconic, universally recognisable visual form of the word's meaning.\n" +
                      "- Describe a single, concrete scene — no collages, no split panels, no text overlays.\n" +
                      "- Style: clean digital illustration, vivid colours, simple composition suitable for a flashcard.\n" +
                      "- Do NOT mention Russian, Cyrillic, letters, textbooks, or language-learning in the prompt.\n" +
@@ -124,10 +126,10 @@ public class GenerateWordImage
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-4o",
             messages = new[]
             {
-                new { role = "system", content = "You are an expert at writing DALL-E image prompts for educational flashcards. Reply with ONLY the image prompt, no explanation." },
+                new { role = "system", content = "You are an expert at writing DALL-E image prompts for educational flashcards. Your prompts make the target word's meaning instantly obvious. Reply with ONLY the image prompt, no explanation." },
                 new { role = "user", content = prompt }
             },
             temperature = 0.7
