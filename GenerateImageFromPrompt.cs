@@ -72,11 +72,11 @@ public class GenerateImageFromPrompt
         {
             var requestBody = JsonSerializer.Serialize(new
             {
-                model = "dall-e-3",
+                model = "gpt-image-1",
                 prompt,
                 n = 1,
                 size = "1024x1024",
-                quality = "standard"
+                quality = "medium"
             });
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/images/generations");
@@ -93,12 +93,12 @@ public class GenerateImageFromPrompt
             }
 
             using var doc = JsonDocument.Parse(respText);
-            var imageUrl = doc.RootElement
+            var imageBase64 = doc.RootElement
                 .GetProperty("data")[0]
-                .GetProperty("url")
+                .GetProperty("b64_json")
                 .GetString();
 
-            return new OkObjectResult(new { imageUrl });
+            return new OkObjectResult(new { imageBase64 });
         }
         catch (Exception ex)
         {

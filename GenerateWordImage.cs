@@ -85,15 +85,15 @@ public class GenerateWordImage
 
             _logger.LogInformation("Generated image prompt: {prompt}", imagePrompt);
 
-            var imageUrl = await GenerateImageWithDallE(imagePrompt, openaiApiKey);
-            if (string.IsNullOrWhiteSpace(imageUrl))
+            var imageBase64 = await GenerateImageWithDallE(imagePrompt, openaiApiKey);
+            if (string.IsNullOrWhiteSpace(imageBase64))
             {
                 return new StatusCodeResult(StatusCodes.Status502BadGateway);
             }
 
             return new OkObjectResult(new
             {
-                imageUrl,
+                imageBase64,
                 prompt = imagePrompt
             });
         }
@@ -161,11 +161,11 @@ public class GenerateWordImage
     {
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "dall-e-3",
+            model = "gpt-image-1",
             prompt = imagePrompt,
             n = 1,
             size = "1024x1024",
-            quality = "standard"
+            quality = "medium"
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/images/generations");
@@ -184,7 +184,7 @@ public class GenerateWordImage
         using var doc = JsonDocument.Parse(respText);
         return doc.RootElement
             .GetProperty("data")[0]
-            .GetProperty("url")
+            .GetProperty("b64_json")
             .GetString();
     }
 }
