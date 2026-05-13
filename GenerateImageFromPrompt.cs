@@ -70,10 +70,12 @@ public class GenerateImageFromPrompt
 
         try
         {
+            var fullPrompt = prompt + " Do not include any English text, letters, words, or labels in the image.";
+
             var requestBody = JsonSerializer.Serialize(new
             {
                 model = "gpt-image-1",
-                prompt,
+                prompt = fullPrompt,
                 n = 1,
                 size = "1024x1024",
                 quality = "medium"

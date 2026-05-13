@@ -121,7 +121,7 @@ public class GenerateWordImage
                      "- Describe a single, concrete scene — no collages, no split panels, no text overlays.\n" +
                      "- Style: clean digital illustration, vivid colours, simple composition suitable for a flashcard.\n" +
                      "- Do NOT mention Russian, Cyrillic, letters, textbooks, or language-learning in the prompt.\n" +
-                     "- Do NOT include any text or labels in the image.\n" +
+                     "- Do NOT include any English text, labels, letters, or words in the image.\n" +
                      "Return ONLY the image generation prompt, nothing else.";
 
         var requestBody = JsonSerializer.Serialize(new
