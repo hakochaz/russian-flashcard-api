@@ -2,6 +2,8 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,6 +12,11 @@ namespace russian_flashcard_api;
 public class SearchForvoPronunciations
 {
     private readonly ILogger<SearchForvoPronunciations> _logger;
+    private static readonly HttpClient _httpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(120),
+        DefaultRequestVersion = new Version(1, 1)
+    };
 
     public SearchForvoPronunciations(ILogger<SearchForvoPronunciations> logger)
     {
@@ -121,12 +128,86 @@ public class SearchForvoPronunciations
 
             _logger.LogInformation($"Found {allItems.Count} pronunciations across {totalPages} page(s) for word: {word}");
 
+            if (allItems.Count > 1)
+            {
+                await MoveBestFlashcardSentenceToFrontAsync(word, allItems);
+            }
+
             return new OkObjectResult(allItems);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Error searching Forvo for word: {word}");
             return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private async Task MoveBestFlashcardSentenceToFrontAsync(string word, List<PronunciationResult> items)
+    {
+        var apiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("OPENAI_API_KEY is not configured; skipping flashcard sentence selection");
+            return;
+        }
+
+        try
+        {
+            var phraseList = new StringBuilder();
+            for (int i = 0; i < items.Count; i++)
+            {
+                phraseList.AppendLine($"{i}: {items[i].Phrase}");
+            }
+
+            var requestBody = JsonSerializer.Serialize(new
+            {
+                model = "gpt-4o-mini",
+                messages = new[]
+                {
+                    new { role = "system", content = "You are a Russian language teaching assistant helping build vocabulary flashcards for a B1-level learner using the i+1 principle. Given a target Russian word and a numbered list of example sentences containing that word, choose the single sentence that is best for a flashcard: it should be otherwise easy for a B1 learner, using common, everyday vocabulary and simple grammar, so that the target word is the only unfamiliar or challenging part of the sentence. Avoid sentences containing rare words, idioms, names, numbers, or complex grammatical constructions. Reply with only the index number of the chosen sentence and nothing else." },
+                    new { role = "user", content = $"Target word: {word}\n\nSentences:\n{phraseList}" }
+                },
+                temperature = 0.0
+            });
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.SendAsync(request);
+            var respText = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("OpenAI API error: {status} {body}", response.StatusCode, respText);
+                return;
+            }
+
+            using var doc = JsonDocument.Parse(respText);
+            var content = doc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString();
+
+            var digits = new string((content ?? string.Empty).Where(char.IsDigit).ToArray());
+            if (int.TryParse(digits, out var bestIndex) && bestIndex >= 0 && bestIndex < items.Count)
+            {
+                if (bestIndex != 0)
+                {
+                    var best = items[bestIndex];
+                    items.RemoveAt(bestIndex);
+                    items.Insert(0, best);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("Could not parse a valid sentence index from OpenAI response: {content}", content);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error selecting best flashcard sentence with OpenAI for word: {word}", word);
         }
     }
 }
