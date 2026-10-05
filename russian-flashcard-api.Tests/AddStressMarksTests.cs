@@ -109,4 +109,37 @@ public class AddStressMarksTests
         // Assert
         Assert.IsType<BadRequestObjectResult>(result);
     }
+
+    [Fact]
+    public void FindAmbiguousWords_ReturnsOptionsForEachAmbiguousWord()
+    {
+        var words = AddStressMarks.FindAmbiguousWords("Ко́нчился э́тот про́клятый|прокля́тый год. Но что да́льше?");
+
+        Assert.Single(words);
+        Assert.Equal(new[] { "про́клятый", "прокля́тый" }, words[0]);
+    }
+
+    [Fact]
+    public void ApplyStressChoices_KeepsChosenOptionAndRemovesPipe()
+    {
+        var result = AddStressMarks.ApplyStressChoices("Ко́нчился э́тот про́клятый|прокля́тый год. Но что да́льше?", new[] { 1 });
+
+        Assert.Equal("Ко́нчился э́тот про́клятый год. Но что да́льше?", result);
+    }
+
+    [Fact]
+    public void ApplyStressChoices_HandlesMultipleAmbiguousWords()
+    {
+        var result = AddStressMarks.ApplyStressChoices("Он до́ма|дома́ и за́мок|замо́к там.", new[] { 1, 2 });
+
+        Assert.Equal("Он до́ма и замо́к там.", result);
+    }
+
+    [Fact]
+    public void ApplyStressChoices_InvalidChoiceFallsBackToFirstOption()
+    {
+        var result = AddStressMarks.ApplyStressChoices("Это за́мок|замо́к.", new[] { 5 });
+
+        Assert.Equal("Это за́мок.", result);
+    }
 }
