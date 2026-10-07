@@ -171,7 +171,12 @@ public class WordAnalysisInSentence
 
     private async Task<string?> GetBaseFormFromOpenAI(string sentence, string word, string apiKey)
     {
-        var prompt = $"Analyze the Russian word '{word}' as it appears in the sentence: \"{sentence}\"\n\n" +
+        return await CallOpenAI(BuildBaseFormPrompt(sentence, word), apiKey, extractString: true);
+    }
+
+    internal static string BuildBaseFormPrompt(string sentence, string word)
+    {
+        return $"Analyze the Russian word '{word}' as it appears in the sentence: \"{sentence}\"\n\n" +
                      "Return ONLY the base form of the word as a simple string (no JSON):\n" +
                      "- For nouns: nominative singular\n" +
                      "  - ONLY append gender (m), (f), or (n) if the noun ends with soft sign ь\n" +
@@ -186,8 +191,6 @@ public class WordAnalysisInSentence
                      "  - Examples: \"читать (i)\", \"прочитать (p)\", \"купить (p)\"\n" +
                      "- For prepositions requiring a case: append case, e.g., \"по (+d)\"\n\n" +
                      "Return ONLY the base form string, nothing else.";
-
-        return await CallOpenAI(prompt, apiKey, extractString: true);
     }
 
     private async Task<(string BaseWord, string Translation)?> SearchAzureAISearch(string baseForm, string endpoint, string apiKey)
@@ -342,7 +345,7 @@ public class WordAnalysisInSentence
         return null;
     }
 
-    private static string CleanBaseFormForLookup(string baseForm)
+    internal static string CleanBaseFormForLookup(string baseForm)
     {
         var cleaned = baseForm
             .Replace(" (i)", "")
