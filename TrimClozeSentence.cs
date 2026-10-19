@@ -157,27 +157,38 @@ public class TrimClozeSentence
                "and keep the {{c1::...}} marker exactly as it is. If the cut leaves a trailing comma, remove it.\n" +
                "  Be conservative: only cut text that adds nothing. If removing something would make the sentence vaguer or more ambiguous " +
                "(e.g. it explains who, what or why), keep it. When in doubt, choose \"" + StatusUnchanged + "\".\n" +
-               $"- \"{StatusInsufficientContext}\": even the full text does not give enough context for a learner to work out the target word.\n\n" +
+               $"- \"{StatusInsufficientContext}\": the learner cannot work out the exact FORM of the target word from the sentence. " +
+               "The card already shows the meaning/translation of the word, so an unclear meaning, slang, filler words or a vague topic are NOT reasons to choose this. " +
+               "Only choose it when the grammar of the sentence leaves the form genuinely undeterminable, e.g. a verb whose person or gender cannot be known " +
+               "because the subject is dropped and nothing else in the sentence indicates it, or a noun/adjective whose case or number cannot be deduced. " +
+               "This deletes the card, so be very conservative: if the form can reasonably be worked out, do not choose it.\n\n" +
                "Examples:\n" +
                "Input: Посмотрите, вот это {{c1::батарея}}.\n" +
-               $"Output: {{\"status\": \"{StatusUnchanged}\"}}\n\n" +
+               $"Output: {{\"formClue\": \"это\", \"status\": \"{StatusUnchanged}\"}}\n\n" +
                "Input: о драме или там о саде, о ремонте, а то есть в общих {{c1::чертах}} я понимала, но вот\n" +
-               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"о драме или там о саде, о ремонте, а то есть в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
+               $"Output: {{\"formClue\": \"в общих\", \"status\": \"{StatusChanged}\", \"cloze\": \"о драме или там о саде, о ремонте, а то есть в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
                "Input: Да, что-то говорила сама. У меня нету {{c1::блоков}} и нету стеснения никакого. И\n" +
-               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Да, что-то говорила сама. У меня нету {{{{c1::блоков}}}} и нету стеснения никакого.\"}}\n\n" +
+               $"Output: {{\"formClue\": \"нету\", \"status\": \"{StatusChanged}\", \"cloze\": \"Да, что-то говорила сама. У меня нету {{{{c1::блоков}}}} и нету стеснения никакого.\"}}\n\n" +
                "Input: всем морнинг, монинг. Я тоже в Англии со всеми {{c1::здороваюсь}}, но это прямо, знаете,\n" +
-               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"всем морнинг, монинг. Я тоже в Англии со всеми {{{{c1::здороваюсь}}}}\"}}\n\n" +
-               "Input: ну и {{c1::вот}}\n" +
-               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"Only filler words surround the target, nothing indicates its meaning.\"}}\n\n" +
+               $"Output: {{\"formClue\": \"Я\", \"status\": \"{StatusChanged}\", \"cloze\": \"всем морнинг, монинг. Я тоже в Англии со всеми {{{{c1::здороваюсь}}}}\"}}\n\n" +
+               "Input: ну, это была просто {{c1::жесть}}\n" +
+               $"Output: {{\"formClue\": \"это была\", \"status\": \"{StatusUnchanged}\"}}\n\n" +
+               "Input: а потом {{c1::позвонила}}\n" +
+               $"Output: {{\"formClue\": \"none\", \"status\": \"{StatusInsufficientContext}\", \"reason\": \"The subject is dropped, so it is impossible to tell who called (я/ты/она) or that the form is feminine.\"}}\n\n" +
+               "Input: ну и {{c1::сделаю}}, если надо\n" +
+               $"Output: {{\"formClue\": \"none\", \"status\": \"{StatusInsufficientContext}\", \"reason\": \"Nothing indicates the subject, so the learner cannot know to use the я form.\"}}\n\n" +
                $"Input: {cloze}\n\n" +
-               "Reply with ONLY a JSON object with \"status\", plus \"cloze\" when changed or a short English \"reason\" when there is insufficient context.";
+               "Reply with ONLY a JSON object. Start with \"formClue\": the word(s) in the sentence that tell the learner the form of the target word " +
+               "(e.g. the subject pronoun, a noun it agrees with, or a governing preposition/verb), or \"none\" if there is no such clue. " +
+               "Then \"status\", plus \"cloze\" when changed or a short English \"reason\" when there is insufficient context. " +
+               $"If formClue is anything other than \"none\", the status must not be \"{StatusInsufficientContext}\".";
     }
 
     private async Task<(string status, string? cloze, string? reason)?> AskOpenAI(string cloze, string apiKey)
     {
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-4o",
             messages = new[]
             {
                 new { role = "system", content = "You are a Russian language expert. Reply with ONLY a JSON object, no explanation." },
@@ -217,6 +228,14 @@ public class TrimClozeSentence
             {
                 _logger.LogWarning("OpenAI returned an unexpected status: {message}", message);
                 return null;
+            }
+
+            // Flagging deletes the card, so only trust it when the model found nothing that gives away the form
+            var formClue = root.TryGetProperty("formClue", out var f) ? f.GetString() : null;
+            if (status == StatusInsufficientContext && !string.IsNullOrWhiteSpace(formClue) && !formClue.Trim().Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("OpenAI flagged insufficient context despite form clue '{formClue}', keeping card: {message}", formClue, message);
+                status = StatusUnchanged;
             }
 
             var newCloze = root.TryGetProperty("cloze", out var c) ? c.GetString() : null;
