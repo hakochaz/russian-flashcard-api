@@ -64,6 +64,13 @@ public class AddStressMarks
 
         _logger.LogInformation("AddStressMarks called for sentence: {sentence}", sentence);
 
+        var stressed = await StressSentenceAsync(sentence);
+        return new OkObjectResult(new { stressed });
+    }
+
+    // Never throws - falls back to the original sentence if stressing fails
+    public async Task<string> StressSentenceAsync(string sentence)
+    {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "https://ws3.morpher.ru/russian/addstressmarks");
@@ -74,7 +81,7 @@ public class AddStressMarks
             if (!resp.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Morpher API returned status {status}, returning original sentence", resp.StatusCode);
-                return new OkObjectResult(new { stressed = sentence });
+                return sentence;
             }
 
             using var stream = await resp.Content.ReadAsStreamAsync();
@@ -87,7 +94,7 @@ public class AddStressMarks
             if (string.IsNullOrWhiteSpace(stressedText))
             {
                 _logger.LogWarning("Failed to extract stressed text from Morpher response, returning original sentence");
-                return new OkObjectResult(new { stressed = sentence });
+                return sentence;
             }
 
             // Only resolve with AI when there is surrounding context - a lone word gives nothing to decide from
@@ -96,12 +103,12 @@ public class AddStressMarks
                 stressedText = await ResolveAmbiguousStress(sentence, stressedText);
             }
 
-            return new OkObjectResult(new { stressed = stressedText });
+            return stressedText;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calling Morpher API, returning original sentence");
-            return new OkObjectResult(new { stressed = sentence });
+            return sentence;
         }
     }
 

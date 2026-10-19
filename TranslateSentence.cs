@@ -55,11 +55,23 @@ public class TranslateSentence
             return new BadRequestObjectResult(new { error = "Please provide 'sentence' in the JSON body." });
         }
 
+        var translation = await TranslateAsync(sentence);
+        if (translation == null)
+        {
+            return new StatusCodeResult(StatusCodes.Status502BadGateway);
+        }
+
+        return new OkObjectResult(new { sentence, translation });
+    }
+
+    // Returns null if DeepL is not configured or the translation fails
+    public async Task<string?> TranslateAsync(string sentence)
+    {
         var apiKey = Environment.GetEnvironmentVariable("DeepL_API_KEY");
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             _logger.LogError("DeepL_API_KEY is not configured");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            return null;
         }
 
         // Free-tier keys end with ":fx" and must use the free API host
@@ -86,21 +98,19 @@ public class TranslateSentence
             if (!resp.IsSuccessStatusCode)
             {
                 _logger.LogError("DeepL API error: {status} {body}", resp.StatusCode, respText);
-                return new StatusCodeResult(StatusCodes.Status502BadGateway);
+                return null;
             }
 
             using var respDoc = JsonDocument.Parse(respText);
-            var translation = respDoc.RootElement
+            return respDoc.RootElement
                 .GetProperty("translations")[0]
                 .GetProperty("text")
                 .GetString();
-
-            return new OkObjectResult(new { sentence, translation });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error translating sentence");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            return null;
         }
     }
 }
