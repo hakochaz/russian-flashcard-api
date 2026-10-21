@@ -57,6 +57,9 @@ public class TrimClozeSentenceTests
     [InlineData(
         "всем морнинг, монинг. Я тоже в Англии со всеми {{c1::здороваюсь}}, но это прямо, знаете,",
         "Я тоже в Англии со всеми {{c1::здороваюсь}}")]
+    // Subject pronoun added to make the verb form clear
+    [InlineData("ну, {{c1::приеду}} попозже", "ну, я {{c1::приеду}} попозже")]
+    [InlineData("а потом {{c1::купили}} новую машину", "а потом они {{c1::купили}} новую машину")]
     public void IsValidTrim_AcceptsTrimmedSentences(string original, string trimmed)
     {
         Assert.True(TrimClozeSentence.IsValidTrim(original, trimmed));
