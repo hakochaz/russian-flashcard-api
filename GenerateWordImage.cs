@@ -161,7 +161,7 @@ public class GenerateWordImage
     {
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-image-1",
+            model = "gpt-image-2",
             prompt = imagePrompt,
             n = 1,
             size = "1024x1024",
