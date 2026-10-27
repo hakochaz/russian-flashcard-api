@@ -150,50 +150,57 @@ public class TrimClozeSentence
 
     private static string BuildPrompt(string cloze)
     {
-        return "You are helping a learner of Russian build cloze flashcards. The cards are often cut from " +
-               "transcripts of speech, so they can start or end in the middle of a sentence or carry extra clauses " +
-               "that do not help the learner understand the target word.\n\n" +
+        return "You are helping a learner of Russian build cloze flashcards. The cards are cut from transcripts of speech, " +
+               "so they usually start part-way through one sentence, run into the next, and break off mid-thought at the end.\n\n" +
                "The target word is marked like {{c1::слово}}. The card already shows the meaning/translation of the target word, " +
                "so the learner only needs the sentence to work out which FORM of the word to write (person, gender, number, case, tense).\n\n" +
-               "Decide one of:\n" +
-               $"- \"{StatusUnchanged}\": the text is already a clean sentence or phrase and the form of the target word can be worked out.\n" +
-               $"- \"{StatusChanged}\": make the smallest edit needed, using one or both of:\n" +
-               "  1. Trim: ALWAYS cut an unfinished fragment at the end, i.e. a trailing conjunction or a clause that breaks off mid-thought " +
-               "(e.g. \", но вот\", \", и\", \". И\", \", но это прямо, знаете,\"). Also cut fragments at the start that add nothing. " +
-               "If the cut leaves a trailing comma, remove it. Do not cut complete clauses that explain who, what or why.\n" +
+               "Your job is to reduce the card to the single clean sentence or phrase that contains the target word. Decide one of:\n" +
+               $"- \"{StatusChanged}\": the text contains anything beyond that one clean sentence. Apply both of these as needed:\n" +
+               "  1. Trim: keep ONLY the sentence that contains the target word. Delete every fragment or sentence before it " +
+               "(e.g. the tail of a previous sentence such as \"новый уровень.\") and every fragment or sentence after it " +
+               "(e.g. \"Раньше я никогда\", \", но вот\", \". И\"). If the sentence itself is long, also cut filler words (ну, вот, знаете, как бы, " +
+               "то есть) and side clauses that are not needed to work out the form of the target word, so that a short base sentence or phrase remains. " +
+               "Keep the words that show the form of the target word (its subject, the noun it agrees with, the preposition or verb that governs it). " +
+               "Remove any leading or trailing comma left by a cut. Keep a full stop/question mark/exclamation mark only if it was already at the end of the kept sentence.\n" +
                "  2. Add a subject pronoun: if the subject is dropped and the form of the target word therefore cannot be worked out, " +
                "insert ONE subject pronoun (я, ты, он, она, оно, мы, вы, они) where it would naturally go. Choose the pronoun that matches the form " +
-               "of the target word and fits the context. Do NOT add a pronoun if anything in the sentence already shows the form. " +
+               "of the target word and fits the context. Do NOT add a pronoun if anything in the kept text already shows the form. " +
                "For past-tense verbs the learner must know the gender and number (e.g. готовил/готовила/готовили), so add a pronoun " +
                "unless another word agrees with the verb (e.g. \"устала\") or names the subject.\n" +
-               "  Apart from that, do NOT add, reword, reorder or translate any words, do NOT add punctuation such as a full stop, " +
-               "and keep the {{c1::...}} marker exactly as it is. Apply 1 and 2 independently: a card can need a trim, a pronoun, or both. " +
-               "Only choose \"" + StatusUnchanged + "\" if neither applies.\n" +
-               $"- \"{StatusInsufficientContext}\": the form of the target word cannot be worked out AND adding a subject pronoun would not fix it " +
-               "(e.g. a lone noun whose case or number cannot be deduced). An unclear meaning, slang, filler words or a vague topic are NOT reasons to choose this. " +
-               "This deletes the card, so be very conservative and choose it only as a last resort.\n\n" +
+               "  Apart from that, do NOT add, reword, reorder or translate any words, and keep the {{c1::...}} marker exactly as it is.\n" +
+               $"- \"{StatusUnchanged}\": ONLY if the text is already exactly one clean, complete sentence or phrase with nothing to cut and no pronoun needed.\n" +
+               $"- \"{StatusInsufficientContext}\": the card is not worth keeping and should be deleted. Choose this when ANY of these is true:\n" +
+               "  - the form of the target word cannot be worked out and adding a subject pronoun would not fix it (e.g. a lone noun whose case or number cannot be deduced);\n" +
+               "  - the target word is a filler or discourse word used as filler (e.g. вот, ну, это самое, как бы, значит, типа);\n" +
+               "  - after trimming, what is left around the target word is a broken fragment that does not make sense on its own " +
+               "(e.g. a few words cut off on both sides with no verb or clear meaning);\n" +
+               "  - the text is garbled (transcription errors, mixed-up words) so the sentence containing the target word is not real, sensible Russian.\n" +
+               "  An unclear meaning of the target word, slang, or a casual topic alone are NOT reasons to choose this.\n\n" +
                "Examples:\n" +
                "Input: Посмотрите, вот это {{c1::батарея}}.\n" +
-               $"Output: {{\"formClue\": \"это\", \"status\": \"{StatusUnchanged}\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusUnchanged}\"}}\n\n" +
+               "Input: новый уровень. Я подготовила для вас обучающий {{c1::урок}} на основе этого подкаста с флеш-картами\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Я подготовила для вас обучающий {{{{c1::урок}}}} на основе этого подкаста с флеш-картами\"}}\n\n" +
+               "Input: знаний, опыта, подготовки. Например, этим летом я начала учить {{c1::французский}} с нуля. Раньше я никогда\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Например, этим летом я начала учить {{{{c1::французский}}}} с нуля.\"}}\n\n" +
+               "Input: обсуждаем взрослые и актуальные темы. Ставьте лайк, {{c1::подписывайтесь}} на мой канал и поехали.\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Ставьте лайк, {{{{c1::подписывайтесь}}}} на мой канал и поехали.\"}}\n\n" +
                "Input: о драме или там о саде, о ремонте, а то есть в общих {{c1::чертах}} я понимала, но вот\n" +
-               $"Output: {{\"formClue\": \"в общих\", \"status\": \"{StatusChanged}\", \"cloze\": \"о драме или там о саде, о ремонте, а то есть в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
                "Input: Да, что-то говорила сама. У меня нету {{c1::блоков}} и нету стеснения никакого. И\n" +
-               $"Output: {{\"formClue\": \"нету\", \"status\": \"{StatusChanged}\", \"cloze\": \"Да, что-то говорила сама. У меня нету {{{{c1::блоков}}}} и нету стеснения никакого.\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"У меня нету {{{{c1::блоков}}}} и нету стеснения никакого.\"}}\n\n" +
                "Input: всем морнинг, монинг. Я тоже в Англии со всеми {{c1::здороваюсь}}, но это прямо, знаете,\n" +
-               $"Output: {{\"formClue\": \"Я\", \"status\": \"{StatusChanged}\", \"cloze\": \"всем морнинг, монинг. Я тоже в Англии со всеми {{{{c1::здороваюсь}}}}\"}}\n\n" +
-               "Input: ну, это была просто {{c1::жесть}}\n" +
-               $"Output: {{\"formClue\": \"это была\", \"status\": \"{StatusUnchanged}\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Я тоже в Англии со всеми {{{{c1::здороваюсь}}}}\"}}\n\n" +
                "Input: а потом {{c1::позвонила}}\n" +
-               $"Output: {{\"formClue\": \"none\", \"status\": \"{StatusChanged}\", \"cloze\": \"а потом она {{{{c1::позвонила}}}}\"}}\n\n" +
-               "Input: ну и {{c1::сделаю}}, если надо\n" +
-               $"Output: {{\"formClue\": \"none\", \"status\": \"{StatusChanged}\", \"cloze\": \"ну и я {{{{c1::сделаю}}}}, если надо\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"а потом она {{{{c1::позвонила}}}}\"}}\n\n" +
                "Input: ну, {{c1::книги}}\n" +
-               $"Output: {{\"formClue\": \"none\", \"status\": \"{StatusInsufficientContext}\", \"reason\": \"Nothing shows whether this is nominative plural or genitive singular, and a pronoun would not help.\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"Nothing shows whether this is nominative plural or genitive singular, and a pronoun would not help.\"}}\n\n" +
+               "Input: и мы, ну, {{c1::вот}}, это самое, да\n" +
+               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"The target word is just a filler word with no real sentence around it.\"}}\n\n" +
+               "Input: что в плане как бы {{c1::изнутри}} то есть когда\n" +
+               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"Only a broken fragment surrounds the target word, it does not make sense on its own.\"}}\n\n" +
                $"Input: {cloze}\n\n" +
-               "Reply with ONLY a JSON object. Start with \"formClue\": the word(s) in the ORIGINAL input that tell the learner the form of the target word " +
-               "(e.g. the subject pronoun, a noun it agrees with, or a governing preposition/verb), or \"none\" if there is no such clue. " +
-               "Then \"status\", plus \"cloze\" when changed or a short English \"reason\" when there is insufficient context. " +
-               $"If formClue is anything other than \"none\", the status must not be \"{StatusInsufficientContext}\" and no pronoun should be added.";
+               "Reply with ONLY a JSON object with \"status\", plus \"cloze\" when changed or a short English \"reason\" when the card should be deleted.";
     }
 
     private async Task<(string status, string? cloze, string? reason)?> AskOpenAI(string cloze, string apiKey)
@@ -240,14 +247,6 @@ public class TrimClozeSentence
             {
                 _logger.LogWarning("OpenAI returned an unexpected status: {message}", message);
                 return null;
-            }
-
-            // Flagging deletes the card, so only trust it when the model found nothing that gives away the form
-            var formClue = root.TryGetProperty("formClue", out var f) ? f.GetString() : null;
-            if (status == StatusInsufficientContext && !string.IsNullOrWhiteSpace(formClue) && !formClue.Trim().Equals("none", StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("OpenAI flagged insufficient context despite form clue '{formClue}', keeping card: {message}", formClue, message);
-                status = StatusUnchanged;
             }
 
             var newCloze = root.TryGetProperty("cloze", out var c) ? c.GetString() : null;
