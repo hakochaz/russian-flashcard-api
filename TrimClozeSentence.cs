@@ -154,28 +154,35 @@ public class TrimClozeSentence
                "so they usually start part-way through one sentence, run into the next, and break off mid-thought at the end.\n\n" +
                "The target word is marked like {{c1::слово}}. The card already shows the meaning/translation of the target word, " +
                "so the learner only needs the sentence to work out which FORM of the word to write (person, gender, number, case, tense).\n\n" +
-               "Your job is to reduce the card to the single clean sentence or phrase that contains the target word. Decide one of:\n" +
+               "Your job is to reduce the card to the single clean sentence or phrase that contains the target word, while keeping that sentence natural and complete. Decide one of:\n" +
                $"- \"{StatusChanged}\": the text contains anything beyond that one clean sentence. Apply both of these as needed:\n" +
                "  1. Trim: keep ONLY the sentence that contains the target word. Delete every fragment or sentence before it " +
                "(e.g. the tail of a previous sentence such as \"новый уровень.\") and every fragment or sentence after it " +
-               "(e.g. \"Раньше я никогда\", \", но вот\", \". И\"). If the sentence itself is long, also cut filler words (ну, вот, знаете, как бы, " +
-               "то есть) and side clauses that are not needed to work out the form of the target word, so that a short base sentence or phrase remains. " +
-               "Keep the words that show the form of the target word (its subject, the noun it agrees with, the preposition or verb that governs it). " +
-               "Remove any leading or trailing comma left by a cut. Keep a full stop/question mark/exclamation mark only if it was already at the end of the kept sentence.\n" +
+               "(e.g. \"Раньше я никогда\", \", но вот\", \". И\"). Within the kept sentence, also delete filler words and phrases " +
+               "(ну, вот, знаете, как бы, то есть, короче, честно говоря) and false starts.\n" +
+               "     Keep the rest of the sentence whole, including its subordinate clauses (потому что, когда, если, который, что, чтобы, ...). " +
+               "Do NOT cut a normal-length sentence down to a single clause. Only when the sentence is very long (roughly more than 20 words after removing filler) " +
+               "may you also drop the clauses furthest from the target word, and even then keep a full, natural sentence of around 8-20 words, " +
+               "not a bare clause.\n" +
+               "     Remove any leading or trailing comma left by a cut. Never add punctuation: keep a full stop/question mark/exclamation mark " +
+               "only if it was already there at the end of the kept text.\n" +
                "  2. Add a subject pronoun: if the subject is dropped and the form of the target word therefore cannot be worked out, " +
                "insert ONE subject pronoun (я, ты, он, она, оно, мы, вы, они) where it would naturally go. Choose the pronoun that matches the form " +
                "of the target word and fits the context. Do NOT add a pronoun if anything in the kept text already shows the form. " +
                "For past-tense verbs the learner must know the gender and number (e.g. готовил/готовила/готовили), so add a pronoun " +
                "unless another word agrees with the verb (e.g. \"устала\") or names the subject.\n" +
                "  Apart from that, do NOT add, reword, reorder or translate any words, and keep the {{c1::...}} marker exactly as it is.\n" +
-               $"- \"{StatusUnchanged}\": ONLY if the text is already exactly one clean, complete sentence or phrase with nothing to cut and no pronoun needed.\n" +
-               $"- \"{StatusInsufficientContext}\": the card is not worth keeping and should be deleted. Choose this when ANY of these is true:\n" +
+               $"- \"{StatusUnchanged}\": ONLY if the text is already exactly one clean, complete sentence or phrase with nothing to cut and no pronoun needed. " +
+               "A dangling word or broken-off fragment at the start or end (e.g. a trailing \"и\", \", да\", \", что я\", \"мы\") always needs a trim, " +
+               "even when the rest of the card is short.\n" +
+               $"- \"{StatusInsufficientContext}\": the card is not worth keeping and should be deleted. This is a last resort: choose it ONLY when one of these is clearly true:\n" +
                "  - the form of the target word cannot be worked out and adding a subject pronoun would not fix it (e.g. a lone noun whose case or number cannot be deduced);\n" +
-               "  - the target word is a filler or discourse word used as filler (e.g. вот, ну, это самое, как бы, значит, типа);\n" +
-               "  - after trimming, what is left around the target word is a broken fragment that does not make sense on its own " +
-               "(e.g. a few words cut off on both sides with no verb or clear meaning);\n" +
-               "  - the text is garbled (transcription errors, mixed-up words) so the sentence containing the target word is not real, sensible Russian.\n" +
-               "  An unclear meaning of the target word, slang, or a casual topic alone are NOT reasons to choose this.\n\n" +
+               "  - the target word itself is a pure filler word (e.g. вот, ну, это самое, как бы, значит, типа) with no real sentence around it;\n" +
+               "  - the text is garbled (transcription errors, mixed-up words) so the words around the target word are not real, sensible Russian.\n" +
+               "  Do NOT delete a card just because it is short or a fragment: a short phrase is a good card if it shows the form of the target word " +
+               "(e.g. \"в школе\", \"по работе\", \"что-то такое интересное\"). Do NOT delete a discourse word such as вообще, просто, правда " +
+               "when it is part of a real sentence. An unclear meaning of the target word, slang, or a casual topic are NOT reasons to delete. " +
+               "If in doubt, keep the card (trimming it as above rather than deleting it).\n\n" +
                "Examples:\n" +
                "Input: Посмотрите, вот это {{c1::батарея}}.\n" +
                $"Output: {{\"status\": \"{StatusUnchanged}\"}}\n\n" +
@@ -186,7 +193,13 @@ public class TrimClozeSentence
                "Input: обсуждаем взрослые и актуальные темы. Ставьте лайк, {{c1::подписывайтесь}} на мой канал и поехали.\n" +
                $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"Ставьте лайк, {{{{c1::подписывайтесь}}}} на мой канал и поехали.\"}}\n\n" +
                "Input: о драме или там о саде, о ремонте, а то есть в общих {{c1::чертах}} я понимала, но вот\n" +
-               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"о драме, о саде, о ремонте, в общих {{{{c1::чертах}}}} я понимала\"}}\n\n" +
+               "Input: ну, знаете, я вчера {{c1::опоздала}} на работу, потому что автобус сломался по дороге. И вот\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"я вчера {{{{c1::опоздала}}}} на работу, потому что автобус сломался по дороге.\"}}\n\n" +
+               "Input: и мы тогда, ну, как бы очень долго {{c1::искали}} квартиру, потому что цены были высокие, район нам не нравился, хозяева не хотели брать людей с собаками, и вообще всё было сложно, и в итоге\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"мы тогда очень долго {{{{c1::искали}}}} квартиру, потому что цены были высокие\"}}\n\n" +
+               "Input: ну, на {{c1::выходных}} мы\n" +
+               $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"на {{{{c1::выходных}}}}\"}}\n\n" +
                "Input: Да, что-то говорила сама. У меня нету {{c1::блоков}} и нету стеснения никакого. И\n" +
                $"Output: {{\"status\": \"{StatusChanged}\", \"cloze\": \"У меня нету {{{{c1::блоков}}}} и нету стеснения никакого.\"}}\n\n" +
                "Input: всем морнинг, монинг. Я тоже в Англии со всеми {{c1::здороваюсь}}, но это прямо, знаете,\n" +
@@ -198,7 +211,7 @@ public class TrimClozeSentence
                "Input: и мы, ну, {{c1::вот}}, это самое, да\n" +
                $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"The target word is just a filler word with no real sentence around it.\"}}\n\n" +
                "Input: что в плане как бы {{c1::изнутри}} то есть когда\n" +
-               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"Only a broken fragment surrounds the target word, it does not make sense on its own.\"}}\n\n" +
+               $"Output: {{\"status\": \"{StatusInsufficientContext}\", \"reason\": \"The words around the target word are only filler and do not form real, sensible Russian.\"}}\n\n" +
                $"Input: {cloze}\n\n" +
                "Reply with ONLY a JSON object with \"status\", plus \"cloze\" when changed or a short English \"reason\" when the card should be deleted.";
     }
