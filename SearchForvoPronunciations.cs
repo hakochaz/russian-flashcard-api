@@ -161,7 +161,7 @@ public class SearchForvoPronunciations
 
             var requestBody = JsonSerializer.Serialize(new
             {
-                model = "gpt-4o-mini",
+                model = "gpt-5.4-mini",
                 messages = new[]
                 {
                     new { role = "system", content = "You are a Russian language teaching assistant helping build vocabulary flashcards for a B1-level learner using the i+1 principle. Given a target Russian word and a numbered list of example sentences containing that word, choose the single sentence that is best for a flashcard: it should be otherwise easy for a B1 learner, using common, everyday vocabulary and simple grammar, so that the target word is the only unfamiliar or challenging part of the sentence. Avoid sentences containing rare words, idioms, names, numbers, or complex grammatical constructions. Reply with only the index number of the chosen sentence and nothing else." },

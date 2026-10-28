@@ -118,7 +118,7 @@ public class PhraseBaseFormHighlighter
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-5.4-mini",
             messages = new[]
             {
                 new { role = "system", content = "You are a precise Russian linguist. Reply with only the converted phrase (nominative/infinitive) and nothing else." },

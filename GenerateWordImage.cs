@@ -126,7 +126,7 @@ public class GenerateWordImage
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o",
+            model = "gpt-5.4",
             messages = new[]
             {
                 new { role = "system", content = "You are an expert at writing DALL-E image prompts for educational flashcards. Your prompts make the target word's meaning instantly obvious. Reply with ONLY the image prompt, no explanation." },

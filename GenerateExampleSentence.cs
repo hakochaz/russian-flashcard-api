@@ -105,7 +105,7 @@ public class GenerateExampleSentence
     {
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-5.4",
             messages = new[]
             {
                 new { role = "system", content = "You are a Russian language expert. Reply with ONLY the requested text, no JSON, no explanation, no extra formatting." },

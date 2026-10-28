@@ -491,7 +491,7 @@ public class WordAnalysisInSentence
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-5.4-mini",
             messages = new[]
             {
                 new { role = "system", content = systemMessage },

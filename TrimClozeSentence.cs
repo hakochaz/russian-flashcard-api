@@ -207,7 +207,7 @@ public class TrimClozeSentence
     {
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o",
+            model = "gpt-5.4",
             messages = new[]
             {
                 new { role = "system", content = "You are a Russian language expert. Reply with ONLY a JSON object, no explanation." },

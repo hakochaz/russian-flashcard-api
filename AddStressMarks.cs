@@ -174,13 +174,14 @@ public class AddStressMarks
 
         var requestBody = JsonSerializer.Serialize(new
         {
-            model = "gpt-4o-mini",
+            model = "gpt-5.4-mini",
             messages = new[]
             {
                 new { role = "system", content = "You are a Russian language expert. Reply with ONLY the requested numbers, no explanation." },
                 new { role = "user", content = prompt.ToString() }
             },
-            temperature = 0
+            // Reasoning is needed to pick stress from grammatical context (e.g. нет воды́); reasoning models only accept the default temperature
+            reasoning_effort = "low"
         });
 
         try

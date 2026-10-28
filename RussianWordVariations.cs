@@ -66,7 +66,7 @@ public class RussianWordVariations
 
             var requestBody = JsonSerializer.Serialize(new
             {
-                model = "gpt-3.5-turbo",
+                model = "gpt-5.4-mini",
                 messages = new[]
                 {
                     new { role = "system", content = "You are a Russian morphology assistant. Reply with a JSON array of strings only. Detect the input word's primary lemma/part-of-speech and return only inflected forms (declensions, conjugations, participles, gerunds, etc.) of that exact lemma. Do NOT include derived words, adjectives/verbs from different lemmas, translations, explanations, or any surrounding text. Provide canonical Cyrillic forms only." },
